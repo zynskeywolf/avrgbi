@@ -10,8 +10,8 @@ void (*line_handler)();
 
 unsigned char * render_setup() {
 	ptr=(unsigned char*)malloc(_VBUFSIZE);
-	DDRD |= 0b11110000;
-	PORTD = 0;
+	VDDR |= 0b00001111;
+	VPORT = 0;
 
 	// inverted fast pwm mode on timer 1
 	TCCR1A = _BV(COM1A1) | _BV(COM1A0) | _BV(WGM11);
@@ -45,7 +45,7 @@ void vsync_line() {
 }
 
 void backporch_line() {
-	if (scanLine == _VOFFSET) // first line of picture
+	if (scanLine == _VOFFSET) // last line of back porch
 	{
 		renderLine = 0;
 		linerepeat = _LINERPT;
@@ -57,13 +57,13 @@ void backporch_line() {
 void active_line() {
 	wait_until(_HOFFSET);
 	__asm__ __volatile__ (
-    _RNDRLN
-    :
-    : [port] "i" (_SFR_IO_ADDR(PORTD)),
-    "x" (ptr+renderLine*_HBYTES),
-    [bleft] "d" (_HBYTES) //bytes left
-    : "r16", "r17", "r18"
-  );
+		_RNDRLN
+		:
+		: [port] "i" (_SFR_IO_ADDR(VPORT)),
+		"x" (ptr+renderLine*_HBYTES),
+		[bleft] "d" (_HBYTES) //bytes left
+		: "r16", "r17"
+	);
 	if (linerepeat)
 		linerepeat--;
 	else
@@ -77,9 +77,9 @@ void active_line() {
 }
 
 void frontporch_line() {
-  if (scanLine == _FRAME_LINES-1)
-    line_handler = &vsync_line;
-  scanLine++;
+	if (scanLine == _FRAME_LINES-1)
+		line_handler = &vsync_line;
+	scanLine++;
 }
 
 static void inline wait_until(unsigned char time) {

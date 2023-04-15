@@ -13,12 +13,12 @@
 "loop:\n"\
 "LD r17,X+\n"\
 "mov r16,r17\n"\
-"andi r16,240\n"\
+"andi r16,15\n"\
 "out %[port],r16\n"\
-"lsl r17\n"\
-"lsl r17\n"\
-"lsl r17\n"\
-"lsl r17\n"\
+"lsr r17\n"\
+"lsr r17\n"\
+"lsr r17\n"\
+"lsr r17\n"\
 "delay3\n"\
 "out %[port],r17\n"\
 "dec %[bleft]\n"\
