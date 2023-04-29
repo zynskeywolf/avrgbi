@@ -5,99 +5,94 @@
 #include "avrgbi-videogen.h"
 
 volatile unsigned short scanLine;
-unsigned char linerepeat,renderLine,*ptr;
-void (*line_handler)();
+unsigned char linerepeat, renderLine, *ptr, nextLine;
 
 unsigned char * render_setup() {
-	ptr=(unsigned char*)malloc(_VBUFSIZE);
-	VDDR |= 0b00001111;
-	VPORT = 0;
-
-	// inverted fast pwm mode on timer 1
-	TCCR1A = _BV(COM1A1) | _BV(COM1A0) | _BV(WGM11);
-	TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10);
-
-	ICR1 = _LINE_CYCLES; // reset at line end
-	OCR1A = _HSYNC_CYCLES; // sync pulse off
+	TCA0.SINGLE.CTRLA = TCA_SINGLE_ENABLE_bm;
+	TCA0.SINGLE.CTRLB = TCA_SINGLE_CMP0EN_bm | TCA_SINGLE_WGMODE_SINGLESLOPE_gc;
+	TCA0.SINGLE.INTCTRL = TCA_SINGLE_OVF_bm;
+	TCA0.SINGLE.PER = _LINE_CYCLES;
+	TCA0.SINGLE.CMP0 = _HSYNC_CYCLES;
 
 	scanLine = _FRAME_LINES;
-	line_handler = &vsync_line;
-	TIMSK1 = _BV(TOIE1);
+	nextLine = 0;
+	ptr = (unsigned char*)malloc(_VBUFSIZE);
+
 	sei();
 	return ptr;
 }
 
 // start of line after sync pulse
-ISR(TIMER1_OVF_vect) {
-	line_handler();
-}
+ISR(TCA0_OVF_vect) {
 
-void vsync_line() {
-	if (scanLine == _FRAME_LINES) {
-		OCR1A = _VSYNC_CYCLES; // keep sync pulse on until back porch start
-		scanLine = 0;
-	}
-	else if (scanLine == _VSYNC_LINES) {
-		OCR1A = _HSYNC_CYCLES;
-		line_handler = &backporch_line;
-	}
-	scanLine++;
-}
-
-void backporch_line() {
-	if (scanLine == _VOFFSET) // last line of back porch
+	TCA0.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
+	switch(nextLine)
 	{
-		renderLine = 0;
-		linerepeat = _LINERPT;
-		line_handler = &active_line;
+	case 0:
+		if (scanLine == _VSYNC_LINES) {
+			PORTB.PIN0CTRL = 128;
+			nextLine = 1;
+		}
+		if (scanLine == _FRAME_LINES) {
+			PORTB.PIN0CTRL = 0;
+			scanLine = 0;
+		}
+		break;
+
+	case 1:
+		if (scanLine == _VOFFSET) // last line of back porch
+		{
+			renderLine = 0;
+			linerepeat = _LINERPT;
+			nextLine = 2;
+		}
+		break;
+
+	case 2:
+		wait_until(_HOFFSET);
+		__asm__ __volatile__ (
+		    _RNDRLN
+		    :
+		    : [port] "i" (&VPORTD.OUT),
+		    "x" (ptr+renderLine*_HBYTES),
+		    [bleft] "d" (_HBYTES) //bytes left
+		    : "r16", "r17"
+		);
+		if (linerepeat)
+			linerepeat--;
+		else
+		{
+			linerepeat = _LINERPT;
+			renderLine ++;
+		}
+		if (scanLine == _LASTLINE)
+			nextLine = 3;
+		break;
+
+	case 3:
+		if (scanLine == _FRAME_LINES - 1)
+			nextLine = 0;
+		break;
 	}
 	scanLine++;
 }
 
-void active_line() {
-	wait_until(_HOFFSET);
+void inline wait_until(unsigned short time) {
 	__asm__ __volatile__ (
-		_RNDRLN
-		:
-		: [port] "i" (_SFR_IO_ADDR(VPORT)),
-		"x" (ptr+renderLine*_HBYTES),
-		[bleft] "d" (_HBYTES) //bytes left
-		: "r16", "r17"
-	);
-	if (linerepeat)
-		linerepeat--;
-	else
-	{
-		linerepeat = _LINERPT;
-		renderLine ++;
-	}
-	if (scanLine == _LASTLINE)
-		line_handler = &frontporch_line;
-	scanLine++;
-}
-
-void frontporch_line() {
-	if (scanLine == _FRAME_LINES-1)
-		line_handler = &vsync_line;
-	scanLine++;
-}
-
-static void inline wait_until(unsigned char time) {
-	__asm__ __volatile__ (
-		"sub %[time], %[tcnt1l]\n"
-		"100:\n"
-		"subi %[time], 3\n"
-		"brcc 100b\n"
-		"subi %[time], 0-3\n"
-		"breq 101f\n"
-		"dec %[time]\n"
-		"breq 102f\n"
-		"rjmp 102f\n"
-		"101:\n"
-		"nop\n"
-		"102:\n"
-		:
-		: [time] "a" (time),
-		[tcnt1l] "a" (TCNT1L)
+	    "sub %[time], %[tcnt]\n"
+	    "100:\n"
+	    "subi %[time], 3\n"
+	    "brcc 100b\n"
+	    "subi %[time], 0-3\n"
+	    "breq 101f\n"
+	    "dec %[time]\n"
+	    "breq 102f\n"
+	    "rjmp 102f\n"
+	    "101:\n"
+	    "nop\n"
+	    "102:\n"
+	    :
+	    : [time] "a" (time),
+	    [tcnt] "a" (TCA0.SINGLE.CNT)
 	);
 }

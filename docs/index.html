@@ -2,43 +2,34 @@
 <div id="header"><img src="logo.png"></div>
 
 <h2>Introduction</h2>
-<p>This project was heavily inspired by (and mildly based on) the original <a href="https://github.com/Avamander/arduino-tvout">TVout</a> library for the Arduino, and aims to provide a simple library and firmware for generating color video output using AVR microcontrollers.</p>
+<p>This project was heavily inspired by (and mildly based on) the original <a href="https://github.com/Avamander/arduino-tvout">TVout</a> library for the Arduino, and aims to provide a simple firmware for generating color video output using AVR microcontrollers, controlled via a serial interface.
 <p>Visit the GitHub repository for the latest version: <a href="https://github.com/dj-pixus/avrgbi">https://github.com/dj-pixus/avrgbi</a></p>
 <p>It can be built and flashed using the official Arduino IDE.</p>
 <p>For bug reports and suggestions, please use GitHub's issue tracker.</p>
+<p>Currently only the ATMega4809 is officially supported and tested, but contributions are always welcome. Older chips like the ATMega328p and ATMega168 are not supported due to hardware limitations.</p> 
 
-<h2>Supported boards</h2>
-
-<p>Currently only the Arduino UNO with the 328P chip is supported, but more devices may be added in the future. Contributions are always welcome.</p>
-<p>Because of the stoopid way pins are mapped on newer boards, we need a different config for every single device in order to find a port with the lower 4 bits all wired out, while at the same time not conflicting with the h/w timer output. Make sure you have the correct board selected when uploading.</p>
-<table>
-<tr><th class="emptycell"></th><th>R</th><th>G</th><th>B</th><th>I</th><th>Sync</th><th>Mode switch</th></tr>
-<tr><td>UNO (ATMega328P)</td><td>A3 (PC3)</td><td>A2 (PC2)</td><td>A1 (PC1)</td><td>A0 (PC0)</td><td>9 (PB1)</td><td>8 (PB0)</td></tr>
-</table>
-
-<h2>How on earth does it work</h2>
-
-<p>The synchronisation signal is generated using the builtin timer/counter of the ATMega chip, which also controls the timing of the video output by interrupts. This way the rest of the program can safely run in the blanking intervals without interfering with the signal timing.</p>
-<p>The picture data is stored in the memory as a series of bytes, where each byte stores the color values for 2 pixels, as shown on the figure below:</p>
-<img src="byte.png">
-<p>The reason for RGBI color format is that 4-bit color is nice to work with on an 8-bit processor. You can imagine this as if all three color channels had 2 bits, except the lower bits are tied together into that one I (intensity?) bit. This gives us a total of 16 possible colors.</p>
-<p>After a cold boot, the screen will show the garbage that happens to be in memory, mostly determined by manufacturing imperfections, cosmic radiation, and the number of femboy foxes in your area. This is normal behavior, and you can get rid of it by doing an initialization command as described at the bottom. Of the page.</p>
-<p>If you want to know more about the way this whole thing is implemented, go study the code. ;)</p>
+<p>Note: For some cursed reason the Arduino IDE is configured for a clock speed of 16 Mhz for the ATMega4809, even though it can do up to 20 MHz. We hope they will fix it in the future, but for now you will need to change some config for this firmware to work properly.<br>The board definition file can be found at <code>/home/you/.arduino15/packages/arduino/hardware/megaavr/1.8.8/boards.txt</code> on Linux and in a similar location under <code>C:\Users\you\AppData\Local\Arduino15</code> on Windows. If you find a line saying something like <code>nona4809.bootloader.OSCCFG=0x01</code>, change the value to <code>0x02</code> in order to set the fuses in the hardware correctly at upload, and change the value of <code>nona4809.build.f_cpu</code> to <code>20000000L</code> for the software to know about it. Also make sure the legacy register emulation is disabled in the Tools menu of Arduino IDE.</p>
+<p>More note: Many modern televisions and monitors tend to be very finicky about signal timing. If your device uses the internal PLL oscillator (as e.g. the Arduino Nano Every does) instead of a quartz, the picture might get fluffy or completely borked. In that case you can't really do anything about it. If you work at NASA, you can try things like putting the chip in a Faraday cage made of pure lead and cooling it with liquid nitrogen, but there is no warranty.</p>
 
 <h3>Supported modes</h3>
-<p>Video modes are defined in header files contained in the <code>modes</code> folder. This means that the firmware has to be built with one specific mode selected at the top of <code>avrgbi-videogen.h</code>, and it can NOT be changed without re-flashing.</p>
+<p>Video modes are defined in the form of header files in the <code>modes</code> folder. This means that the firmware has to be built with one specific mode selected at the top of <code>avrgbi-videogen.h</code>, and it can NOT be changed without re-flashing.</p>
 <p>Currently the following modes are available:</p>
-
 <ul>
-<li>NTSC (720x480@30i), 68x48 4bpp</li>
-<li>VGA (640x480@60p), 44x77 anamorphic 4bpp</li>
+<li>NTSC (720x480@30i), 116x100 4bpp</li>
 </ul>
 
 <h2>Connecting the hardware</h2>
 
-<table class="imgcntnr">
+<p>Below is a table about what I/O ports are used for what:</p>
+<table>
+<tr><th class="emptycell"></th><th>R</th><th>G</th><th>B</th><th>I</th><th>Sync</th><th>Mode switch</th></tr>
+<tr><td>ATMega4809</td><td>PD3</td><td>PD2</td><td>PD1</td><td>PD0</td><td>PB0</td><td>PB1</td></tr>
+<tr><td>Arduino Nano Every</td><td>A0</td><td>A1</td><td>A2</td><td>A3</td><td>D9</td><td>D10</td></tr>
+</table>
 
-<p>The device can be connected to either a television with a EuroScart input using NTSC timing (yes, we are feeding American signal into a European device, but who cares as long as it works), or a VGA monitor with a 15-pin (or maybe only 14-pin?) D-Sub input using standard VESA timing.</p>
+<p>The device can be connected to either a television with a EuroScart input using NTSC timing (yes, we are feeding American signal into a European device, but who cares as long as it works), or a VGA monitor with a 15-pin (or maybe only 14-pin?) D-Sub input using standard VESA timing (which is not yet supported but I show you the physical layer anyway).</p>
+
+<table class="imgcntnr">
 <tr><td><a href="wiring-scart.png"><img src="wiring-scart.png" width="440"></a></td><td><a href="wiring-vga.png"><img src="wiring-vga.png" width="440"></a></td></tr>
 <tr><td>Scart connection</td><td>VGA (D-Sub) connection</td></tr>
 </table>
@@ -57,7 +48,7 @@
 
 <p>Pin 16 of the Scart connector is the so-called blanking signal that tells the TV when to switch to RGB input. This is like a 1-bit alpha channel and is usually used by CRT boxes to overlay teletext and other things on top of a composite video source (the TV programme for example). The voltage threshold can vary, but it should be somewhere between 1 and 3 volts when enabled. As we always want pure RGB input, we can tie it up to 5 V through 220 ohms to set it to a friendly 1.27 V level. If your Arduino has a 3.3 V pin, you can use that too, changing the resistor value accordingly. Please note that in many non-computerized TV sets this will override the builtin OSD too, causing it not to display at all. The saturation setting might also not have any effect in this mode for obvious reasons. This is normal behavior and you didn't break your TV (yet).</p>
 <p>Pin 8 is a switching signal that tells the TV that we want to use the Scart input. Connecting it is only required if your TV doesn't offer an option to switch to it manually. Using this pin you can say to the TV something like "could u pls switch to this input right here thx". Some compassionate tubes will even turn on from stand-by, just for you. Please note that as our circuit only has 5 volts of juice, this signal will also make some TVs switch to 16:9 aspect ratio. If your TV requires this signal to be present and also supports 16:9 mode, you will need to steal 9-12 volts from somewhere else to make it look right.</p>
-<p>VGA monitors don't even need this much pleading, they just accept RGB input by nature, and come to life automagically when the sync signal is present. Monitors are really kind-hearted objects. Love and respect your monitor.</p>
+<p>VGA monitors don't need this much pleading, they just accept RGB input by nature, and come to life automagically when the sync signal is present. Monitors are really kind-hearted objects. Love and respect your monitor.</p>
 
 <h3>There are two kinds of TVs in this world</h3>
 
@@ -65,10 +56,19 @@
 
 <p>The picture above shows two possible sets of colors, and which one you will get depends on the way your TV handles signal levels. As a traditional composite video signal carries the brightness information and the sync signal on the same wire (for the sake of simplicity, colors don't exist now), the smort engineers chose to lift the black level up from the ground to make room for the sync pulses to go even lower. This means that in a standard analog TV signal the visible brightness range goes from 0.3 V to 1 V, and it is true even for the RGB input. The problem is that the black level of our circuit is exaclty 0 V. Now, the standard also says that a TV should calibrate its black level based on the signal level during the "back porch", which happens in each line and is the time interval between the horizontal sync pulse and the left edge of the actual picture. (This is why you get a black screen if you tie the video signal to a fixed voltage.) Some TV sets can do this correctly and display the palette shown on the left. But some TVs are just unable to "hear" below a certain voltage, and on those the low signals get buried, giving a palette similar to the one on the right. This inconsistency could probably be fixed by pulling all three signals up by 0.3 volts using some appropriate resistors, but I wanted to keep the circuit simple.</p>
 
-<h2>Serial protocol specification</h2>
+<h2>How on earth does it work</h2>
 
-<p>Commands can be sent to the device using the serial interface at 115200 Baud, with no handshake signals, 8 data bits, without parity bit, and one stop bit. A command is made up of a one-byte command identifier followed by zero or more parameters. A command is executed after receiving the required number of bytes with no time limit.</p>
-<p>When using the <code>C</code> parameter for specifying color, the lower 4 bits of the byte are used for specifying a 4-bit color value, and the upper 4 bits have no importance currently.</p>
+<p>The synchronisation signal is generated using the builtin timer/counter of the ATMega chip, which also controls the timing of the video output by interrupts. This way the rest of the program can safely run in the blanking intervals without interfering with the signal timing.</p>
+<p>The picture data is stored in the memory as a series of bytes, where each byte stores the color values for 2 pixels, as shown on the figure below:</p>
+<img src="byte.png">
+<p>The reason for RGBI color format is that 4-bit color is nice to work with on an 8-bit processor. You can imagine this as if all three color channels had 2 bits, except the lower bits are tied together into that one I (intensity?) bit. This gives us a total of 16 possible colors.</p>
+<p>After a cold boot, the screen will show the garbage that happens to be in memory, mostly determined by manufacturing imperfections, cosmic radiation, and the number of femboy foxes in your area. This is normal behavior, and you can get rid of it by doing an initialization command as described at the bottom. Of the page.</p>
+<p>If you want to know more about the way this whole thing is implemented, go study the code. ;)</p>
+
+<h2>Serial protocol specification</h2>
+<p>Commands can be sent to the device using the serial interface at 115200 Baud, with no handshake signals, 8 data bits, without parity bit, and one stop bit. A command is made up of a one-byte command identifier followed by some parameters. A command is executed after receiving the required number of bytes with no time limit.</p>
+
+<h3>Commands</h3>
 
 <table>
 <tr><td><code>0 - C</code></td><td>Initialize/fill screen with color <code>C</code>.</td></tr>
@@ -76,7 +76,38 @@
 <tr><td><code>2 - Y - X0 - X1 - C</code></td><td>Draw a row of pixels of color <code>C</code> in line <code>Y</code>, from <code>X0</code> to <code>X1</code>.</td></tr>
 <tr><td><code>3 - X - Y0 - Y1 - C</code></td><td>Draw a column of pixels of color <code>C</code> in column <code>X</code>, from <code>Y0</code> to <code>Y1</code>.</td></tr>
 <tr><td><code>4 - X0 - Y0 - X1 - Y1 - C</code></td><td>Draw a filled rectangle of color <code>C</code> with <code>X0</code>, <code>Y0</code>, <code>X1</code> and <code>Y1</code> specifying two opposite corners.</td></tr>
-<tr><td><code>5 - XBYTE - Y - WBYTE - H - ...</code></td><td>Display a rectangular bitmap described by the data following this command, starting at row <code>Y</code>. Due to the way pixel data is stored in memory, the horizontal offset must be even, and is going to be <code>XBYTE * 2</code>. The data is drawn in horizontal lines with a width of <code>WBYTE * 2</code>. <code>H</code> specifies the height of the bitmap. The command returns after <code>XBYTE * H</code> bytes of data has been received.</td></tr>
+<tr><td><code>5 - XBYTE - Y - WBYTE - H - ...</code></td><td>Display a rectangular bitmap described by the data following this command, starting at row <code>Y</code>. Due to the way pixel data is stored in memory, the horizontal offset must be even, and is going to be <code>XBYTE * 2</code>. The bitmap is drawn in horizontal lines with a width of <code>WBYTE * 2</code> and a height of <code>H</code>. The command returns after <code>XBYTE * H</code> bytes of data has been received.</td></tr>
+</table>
+
+<h3>Colors</h3>
+<p>When using the <code>C</code> parameter for specifying color, the lower 4 bits of the byte are used for specifying the 4-bit color value, and the upper 4 bits have no importance in the current implementation.</p>
+
+<table>
+<tr><th>Hex value</th><th>Color</th><th>Hex value</th><th>Color</th><th>Hex value</th><th>Color</th><th>Hex value</th><th>Color</th></tr>
+<tr>
+<td><code>X0</code></td><td style="background-color:#000">Black</td>
+<td><code>X1</code></td><td style="background-color:#555">Dark grey</td>
+<td><code>X2</code></td><td style="background-color:#00a">Dark blue</td>
+<td><code>X3</code></td><td style="background-color:#55f">Blue</td>
+</tr>
+<tr>
+<td><code>X4</code></td><td style="background-color:#0a0">Dark green</td>
+<td><code>X5</code></td><td style="background-color:#5f5;color:#000">Light green</td>
+<td><code>X6</code></td><td style="background-color:#0aa">Teal</td>
+<td><code>X7</code></td><td style="background-color:#5ff;color:#000">Cyan</td>
+</tr>
+<tr>
+<td><code>X8</code></td><td style="background-color:#a00">Red</td>
+<td><code>X9</code></td><td style="background-color:#f55">Light red</td>
+<td><code>XA</code></td><td style="background-color:#a0a">Purple</td>
+<td><code>XB</code></td><td style="background-color:#f5f;color:#000">Magenta</td>
+</tr>
+<tr>
+<td><code>XC</code></td><td style="background-color:#aa0">Dark yellow</td>
+<td><code>XD</code></td><td style="background-color:#ff5;color:#000">Yellow</td>
+<td><code>XE</code></td><td style="background-color:#aaa;color:#000">Silver</td>
+<td><code>XF</code></td><td style="background-color:#fff;color:#000">White</td>
+</tr>
 </table>
 
 <h3>Debug mode</h3>
@@ -85,8 +116,8 @@ To enter debug mode, reset or power cycle the device while the <code>Mode switch
 <ul>
 <li>Screen is initialized with a test pattern that can be used to check the color set and picture geometry.</li>
 <li>Received command parameters are echoed back after execution.</li>
-<li>Drawing is slowed down to a visually inspectable speed so you can see what is going on. Please note that commands are executed sequentially, so sending too much data at once can make the serial buffer overflow, causing unexpected behaviors.</li>
 <li>The command byte gets modulo'd by the number of available commands. The idea behind this is to let you do simple stress tests using a random stream of data.</li>
+<li>The first row of pixels display the size of the incoming data queue in the serial buffer in white. In bitmap drawing mode, the number of remaining rows is displayed in silver.</li>
 </ul>
 
 </div></body></html>
