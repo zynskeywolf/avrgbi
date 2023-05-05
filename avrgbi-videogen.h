@@ -1,5 +1,5 @@
 // See available modes in ./modes, include the one you need
-#include "modes/ntsc-116x100.h"
+#include "modes/ntsc-120x96.h"
 
 #define _VSYNC_CYCLES ((_VSYNC_LINES * _LINE_CYCLES) - 1)
 #define _HRES (_HBYTES*2)

@@ -1,70 +1,181 @@
 #include "avrgbi-videogen.h"
 
 bool debug=0;
-unsigned char cmd,x0,y0,x1,y1,c,tmp,*scrnptr;
-unsigned short qu;
+unsigned char *scrnptr,cmd,x0,y0,x1,y1,c,chi,cmode,tmp;
+unsigned short dtmp;
 
-inline void dspbuf() // display serial buffer usage
-{
-	row(255,0,0,qu);
-	row(0,0,qu,_HRES-1);
-}
+inline void fill(unsigned char c, unsigned char cmode, unsigned char y0, unsigned char y1) {
+	c|=(c<<4);
+	unsigned short ptr=y0*_HBYTES; // start for
+	dtmp=(y1+1)*_HBYTES; // end for
 
-void fill(unsigned char c) {
-	for(unsigned short i=0; i<_VBUFSIZE; i++)
-		scrnptr[i] = (c&0x0f)|(c<<4);
+	switch(cmode)
+	{
+	case 0: // replace
+		for(; ptr<dtmp; ptr++)
+			scrnptr[ptr] = c;
+		break;
+	case 1: // add
+		for(; ptr<dtmp; ptr++)
+			scrnptr[ptr] |= c;
+		break;
+	case 2: // subtract
+		for(; ptr<dtmp; ptr++)
+			scrnptr[ptr] &= c;
+		break;
+	case 3: // invert
+		for(; ptr<dtmp; ptr++)
+			scrnptr[ptr] ^= c;
+		break;
+	}
 }
 
 inline void pix(unsigned char c, unsigned char x, unsigned char y) {
-	int i=(x%_HRES)/2+(y%_HRES)*_HBYTES;
-	scrnptr[i]=(x%2? (scrnptr[i]&0x0f)|(c<<4) : (scrnptr[i]&0xf0)|(c&0x0f));
+	short i=(x%_HRES)/2+(y%_VRES)*_HBYTES;
+	switch(c>>4)
+	{
+	case 0:
+		scrnptr[i]=(x%2? (scrnptr[i]&0x0f)|(c<<4) : (scrnptr[i]&0xf0)|(c&0x0f));
+		break;
+	case 1:
+		scrnptr[i]|=(x%2? c<<4 : c&0x0f);
+		break;
+	case 2:
+		scrnptr[i]&=(x%2? (c<<4)|0x0f : c|0xf0);
+		break;
+	case 3:
+		scrnptr[i]^=(x%2? c<<4 : c&0x0f);
+		break;
+	}
 }
 
-void row(unsigned char c, unsigned char line, unsigned char x0, unsigned char x1)
+void row(unsigned char c, unsigned char cmode, unsigned char line, unsigned char x0, unsigned char x1)
 {
-	if(line>=_VRES) return; // line out of screen: do nothing
-	if(x0>x1) // swap order if needed
-	{
-		tmp=x0;
-		x0=x1;
-		x1=tmp;
-	}
-	if(x0>=_HRES) return; // left end out of screen: do nothing
-	if(x1>=_HRES) x1=_HRES-1; // right end out of screen: bring it back in
-
 	short i=line*_HBYTES+x0/2;
-	if(x0%2) // left end on odd pixel
+
+	// left end on odd pixel
+	if(x0%2)
 	{
-		scrnptr[line*_HBYTES+x0/2]=(scrnptr[line*_HBYTES+x0/2]&0x0f)|(c<<4);
+		dtmp=line*_HBYTES+x0/2;
+		switch(cmode)
+		{
+		case 0:
+			scrnptr[dtmp]=(scrnptr[dtmp]&0x0f)|(c<<4);
+			break;
+		case 1:
+			scrnptr[dtmp]|=c<<4;
+			break;
+		case 2:
+			scrnptr[dtmp]&=(c<<4)|0x0f;
+			break;
+		case 3:
+			scrnptr[dtmp]^=c<<4;
+			break;
+		}
 		i++;
 	}
-	for(; i<line*_HBYTES+(x1+1)/2; i++)
-		scrnptr[i] = (c&0x0f)|(c<<4);
-	if(!(x1%2)) // right end on even pixel
-		scrnptr[line*_HBYTES+x1/2]=(scrnptr[line*_HBYTES+x1/2]&0xf0)|(c&0x0f);
+
+	// right end on even pixel
+	if(!(x1%2))
+	{
+		dtmp=line*_HBYTES+x1/2;
+		switch(cmode)
+		{
+		case 0:
+			scrnptr[dtmp]=(scrnptr[dtmp]&0xf0)|c;
+			break;
+		case 1:
+			scrnptr[dtmp]|=c;
+			break;
+		case 2:
+			scrnptr[dtmp]&=c|0xf0;
+			break;
+		case 3:
+			scrnptr[dtmp]^=c;
+			break;
+		}
+	}
+
+	// in between
+	dtmp=line*_HBYTES+(x1+1)/2;
+	c|=c<<4;
+	switch(cmode)
+	{
+	case 0: // replace
+		for(; i<dtmp; i++)
+			scrnptr[i] = c;
+		break;
+	case 1: // add
+		for(; i<dtmp; i++)
+			scrnptr[i] |= c;
+		break;
+	case 2: // subtract
+		for(; i<dtmp; i++)
+			scrnptr[i] &= c;
+		break;
+	case 3: // invert
+		for(; i<dtmp; i++)
+			scrnptr[i] ^= c;
+		break;
+	}
 }
 
-void col(unsigned char c, unsigned char col, unsigned char y0, unsigned char y1)
+void col_even(unsigned char c, unsigned char cmode, unsigned char col, unsigned char y0, unsigned char y1)
 {
-	if(col>=_HRES) return; // column out of screen: do nothing
-	if(y0>y1) // swap order if needed
+	unsigned short i=y0*_HBYTES+col; // top
+	dtmp=y1*_HBYTES+col; // bottom
+	switch(cmode)
 	{
-		tmp=y0;
-		y0=y1;
-		y1=tmp;
+	case 0:
+		for(; i<=dtmp; i+=_HBYTES)
+			scrnptr[i]=(scrnptr[i]&0xf0)|c;
+		break;
+	case 1:
+		for(; i<=dtmp; i+=_HBYTES)
+			scrnptr[i]|=c;
+		break;
+	case 2:
+		for(; i<=dtmp; i+=_HBYTES)
+			scrnptr[i]&=c|0xf0;
+		break;
+	case 3:
+		for(; i<=dtmp; i+=_HBYTES)
+			scrnptr[i]^=c;
+		break;
 	}
-	if(y0>=_VRES) return; // top end out of screen: do nothing
-	if(y1>=_VRES) y1=_VRES-1; // bottom end out of screen: bring it back in
-	if(col%2) // odd column
-		for(short i=y0*_HBYTES+col/2; i<y1*_HBYTES+col; i+=_HBYTES)
-			scrnptr[i] = (scrnptr[i]&0x0f)|(c<<4);
-	else // even column
-		for(short i=y0*_HBYTES+col/2; i<=y1*_HBYTES+col; i+=_HBYTES)
-			scrnptr[i] = (scrnptr[i]&0xf0)|(c&0x0f);
+}
+
+void col_odd(unsigned char c, unsigned char cmode, unsigned char col, unsigned char y0, unsigned char y1)
+{
+	unsigned short i=y0*_HBYTES+col; // top
+	dtmp=y1*_HBYTES+col; // bottom
+	c=c<<4;
+	switch(cmode)
+	{
+	case 0:
+		for(; i<=dtmp; i+=_HBYTES)
+			scrnptr[i]=(scrnptr[i]&0x0f)|c;
+		break;
+	case 1:
+		for(; i<=dtmp; i+=_HBYTES)
+			scrnptr[i]|=c;
+		break;
+	case 2:
+		for(; i<=dtmp; i+=_HBYTES)
+			scrnptr[i]&=c|0x0f;
+		break;
+	case 3:
+		for(; i<=dtmp; i+=_HBYTES)
+			scrnptr[i]^=c;
+		break;
+	}
 }
 
 void rect(unsigned char c, unsigned char x0, unsigned char y0, unsigned char x1, unsigned char y1)
 {
+	cmode=c>>4;
+	c&=0x0f;
+
 	if(x0>x1) // swap order if needed
 	{
 		tmp=x0;
@@ -80,50 +191,47 @@ void rect(unsigned char c, unsigned char x0, unsigned char y0, unsigned char x1,
 	if(x0>=_HRES||y0>=_VRES) return; // top left corner out of screen: do nothing
 	if(x1>=_HRES) x1=_HRES-1; // right edge out of screen: bring it back in
 	if(y1>=_VRES) y1=_VRES-1; // bottom edge out of screen: bring it back in
-	if(x0==0 && x1==_HRES-1 && y0==0 && y1==_VRES-1) // full screen
+
+	if(x0==0 && x1==_HRES-1) // full width
 	{
-		fill(c);
+		fill(c,cmode,y0,y1);
 		return;
 	}
 	if(x0==x1) // no width: column
 	{
-		col(c,x0,y0,y1);
+		if(x0%2)
+			col_odd(c,cmode,x0/2,y0,y1);
+		else
+			col_even(c,cmode,x0/2,y0,y1);
 		return;
 	}
 	if(y0==y1) // no height: row
 	{
-		row(c,y0,x0,x1);
+		row(c,cmode,y0,x0,x1);
 		return;
 	}
-	for(unsigned char i=x0; i<=x1; i++) // many columns
-	{
-		col(c,i,y0,y1);
-		if(debug)
-		{
-			qu=Serial.available();
-			dspbuf();
-		}
-	}
+
+	// many columns
+	tmp=x1/2;
+	for(unsigned char i=(x0+1)/2; i<=tmp; i++)
+		col_even(c,cmode,i,y0,y1);
+	tmp=(x1+1)/2;
+	for(unsigned char i=x0/2; i<tmp; i++)
+		col_odd(c,cmode,i,y0,y1);
 }
 
 void bmp(unsigned char x, unsigned char ypos, unsigned char width, unsigned char height) {
-	unsigned char y=ypos;
-	while(y<ypos+height) // each row
+	unsigned char line=ypos, endwhile=ypos+height;
+	dtmp=(unsigned short)x+width;
+	while(line<endwhile) // each row
 	{
-		for(unsigned char i=x; i<x+width; i++) // a row
+		for(unsigned short i=x; i<dtmp; i++) // a row
 		{
-			do // wait for data
-				qu=Serial.available();
-			while(!qu);
-			if(y==_VRES||i>=_HBYTES) Serial.read(); // out of screen: discard
-			else scrnptr[y*_HBYTES+i]=Serial.read(); // in screen: draw
+			while(!Serial.available()); // wait for data
+			if(line==_VRES||i>=_HBYTES) Serial.read(); // out of screen: discard
+			else scrnptr[line*_HBYTES+i]=Serial.read(); // in screen: draw
 		}
-		if(debug)
-		{
-			dspbuf();
-			row(14,0,0,height+ypos-y-1);
-		}
-		y++;
+		line++;
 	}
 }
 
@@ -166,28 +274,16 @@ void setup()
 
 void loop()
 {
-	do
-		qu = Serial.available();
-	while(!qu); // wait for command
+	while(!Serial.available()); // wait for command
 
 	cmd=Serial.read();
 
 	if(debug)
-	{
-		dspbuf();
-		cmd%=6; // modulo to make sure to react to any number
-	}
+		cmd%=3; // modulo to make sure to react to any number
 
 	switch(cmd)
 	{
-	case 0: // fill
-		while(!Serial.available());
-		c=Serial.read();
-		fill(c);
-		if(debug) Serial.write(c);
-		break;
-
-	case 1: // pixel
+	case 0: // pixel
 		while(Serial.available()<3);
 		c=Serial.read();
 		x0=Serial.read();
@@ -195,45 +291,14 @@ void loop()
 		pix(c,x0,y0);
 		if(debug)
 		{
+			Serial.write(cmd);
 			Serial.write(c);
 			Serial.write(x0);
 			Serial.write(y0);
 		}
 		break;
 
-	case 2: // row
-		while(Serial.available()<4);
-		c=Serial.read();
-		y0=Serial.read();
-		x0=Serial.read();
-		x1=Serial.read();
-		row(c,y0,x0,x1);
-		if(debug)
-		{
-			Serial.write(c);
-			Serial.write(y0);
-			Serial.write(x0);
-			Serial.write(x1);
-		}
-		break;
-
-	case 3: // column
-		while(Serial.available()<4);
-		c=Serial.read();
-		x0=Serial.read();
-		y0=Serial.read();
-		y1=Serial.read();
-		col(c,x0,y0,y1);
-		if(debug)
-		{
-			Serial.write(c);
-			Serial.write(x0);
-			Serial.write(y0);
-			Serial.write(y1);
-		}
-		break;
-
-	case 4: // rectangle
+	case 1: // rectangle
 		while(Serial.available()<5);
 		c=Serial.read();
 		x0=Serial.read();
@@ -243,6 +308,7 @@ void loop()
 		rect(c,x0,y0,x1,y1);
 		if(debug)
 		{
+			Serial.write(cmd);
 			Serial.write(c);
 			Serial.write(x0);
 			Serial.write(y0);
@@ -251,7 +317,7 @@ void loop()
 		}
 		break;
 
-	case 5: // bitmap
+	case 2: // bitmap
 		while(Serial.available()<4);
 		x0=Serial.read();
 		y0=Serial.read();
@@ -260,6 +326,7 @@ void loop()
 		bmp(x0,y0,x1,y1);
 		if(debug)
 		{
+			Serial.write(cmd);
 			Serial.write(x0);
 			Serial.write(y0);
 			Serial.write(x1);
