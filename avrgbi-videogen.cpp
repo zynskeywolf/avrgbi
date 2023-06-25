@@ -28,19 +28,19 @@ ISR(TCA0_OVF_vect) {
 	TCA0.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
 	switch(nextLine)
 	{
-	case 0:
+	case 0: // vsync
 		if (scanLine == _VSYNC_LINES) {
 			PORTB.PIN0CTRL = 128;
 			nextLine = 1;
 		}
-		if (scanLine == _FRAME_LINES) {
+		else if (scanLine == _FRAME_LINES) {
 			PORTB.PIN0CTRL = 0;
 			scanLine = 0;
 		}
 		break;
 
-	case 1:
-		if (scanLine == _VOFFSET) // last line of back porch
+	case 1: // back porch
+		if (scanLine == _VOFFSET)
 		{
 			renderLine = 0;
 			linerepeat = _LINERPT;
@@ -48,7 +48,7 @@ ISR(TCA0_OVF_vect) {
 		}
 		break;
 
-	case 2:
+	case 2: // active line
 		wait_until(_HOFFSET);
 		__asm__ __volatile__ (
 		    _RNDRLN
@@ -69,7 +69,7 @@ ISR(TCA0_OVF_vect) {
 			nextLine = 3;
 		break;
 
-	case 3:
+	case 3: // front porch
 		if (scanLine == _FRAME_LINES - 1)
 			nextLine = 0;
 		break;

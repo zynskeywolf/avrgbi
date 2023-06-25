@@ -51,7 +51,7 @@ inline void pix(unsigned char c, unsigned char x, unsigned char y) {
 
 void row(unsigned char c, unsigned char cmode, unsigned char line, unsigned char x0, unsigned char x1)
 {
-	short i=line*_HBYTES+x0/2;
+	unsigned short i=line*_HBYTES+x0/2;
 
 	// left end on odd pixel
 	if(x0%2)
@@ -244,7 +244,6 @@ void setup()
 	PORTB.PIN0CTRL=128;
 	PORTB.PIN1CTRL=8;
 	VPORTD.DIR |= 0b00001111;
-	PORTMUX.TCAROUTEA = PORTMUX_TCA0_PORTB_gc;
 
 	scrnptr=render_setup();
 
@@ -268,7 +267,7 @@ void setup()
 		rect(15,_HRES*0.75,_VRES*0.75,_HRES-1,_VRES-1);
 		debug=1;
 	}
-	PORTB.PIN1CTRL=0; // mode(PB0) pullup off (to be eco friendly)
+	PORTB.PIN1CTRL=0; // mode(PB1) pullup off (to be eco friendly)
 	Serial.begin(115200);
 }
 

@@ -4,7 +4,7 @@
 #define _LINE_CYCLES ((63.5 * _CYCLES_PER_US) - 1)
 
 #define _HBYTES 60
-#define _HOFFSET 280
+#define _HOFFSET (14 * _CYCLES_PER_US) 
 #define _VRES 96
 #define _VOFFSET 40
 #define _LINERPT 1
