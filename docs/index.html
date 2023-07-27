@@ -2,7 +2,7 @@
 <div id="header"><img src="logo.png"></div>
 
 <h2>Introduction</h2>
-<p>This project was heavily inspired by (and mildly based on) the original <a href="https://github.com/Avamander/arduino-tvout">TVout</a> library for the Arduino, and aims to provide a simple firmware for generating color video output using AVR microcontrollers, controlled via a serial interface.
+<p>This project was heavily inspired by (and using small bits of) the original <a href="https://github.com/Avamander/arduino-tvout">TVout</a> library for the Arduino, and aims to provide a simple firmware for generating color video output using AVR microcontrollers, controlled via a serial interface.
 <p>Visit the GitHub repository for the latest version: <a href="https://github.com/dj-pixus/avrgbi">https://github.com/dj-pixus/avrgbi</a></p>
 <p>It can be built and flashed using the official Arduino IDE.</p>
 <p>For bug reports and suggestions, please use GitHub's issue tracker.</p>
@@ -10,22 +10,25 @@
 
 <h3>Note about clock frequency</h3>
 
-<p>Note: For some cursed reason the Arduino IDE is configured for a clock speed of 16 MHz for the ATMega4809, even though it can do up to 20 MHz. We hope they will fix it in the future, but for now you will need to change some config for this firmware to work properly.<br>The board definition file can be found at <code>/home/you/.arduino15/packages/arduino/hardware/megaavr/1.8.8/boards.txt</code> on Linux and in a similar location under <code>C:\Users\you\AppData\Local\Arduino15</code> on Windows. If you find a line saying something like <code>nona4809.bootloader.OSCCFG=0x01</code>, change the value to <code>0x02</code> in order to set the fuses in the hardware correctly at upload, and change the value of <code>nona4809.build.f_cpu</code> to <code>20000000L</code> for the software to know about it. Also make sure the legacy register emulation is disabled in the Tools menu of Arduino IDE.</p>
-<p>More note: Many modern televisions and monitors tend to be very finicky about signal timing. If your device uses the internal PLL oscillator (as e.g. the Arduino Nano Every does) instead of a quartz, the picture might get fluffy or completely borked. In that case you can't really do anything about it. If you work at NASA, you can try things like putting the chip in a Faraday cage made of pure lead and cooling it with liquid nitrogen, but there is no warranty.</p>
+<p>Note: For some cursed reason the Arduino IDE is configured for a clock speed of 16 MHz for the ATMega4809, even though it can do up to 20 MHz. We hope they will fix it in the future, but for now you will need to change some config for this firmware to work properly.<br>The board definition file can be found at <code>/home/you/.arduinoXX/packages/arduino/hardware/megaavr/X.X.X/boards.txt</code> on Linux and in a similar location under <code>C:\Users\you\AppData\Local\ArduinoXX</code> on Windows. If you find a line saying something like <code>nona4809.bootloader.OSCCFG=0x01</code>, change the value to <code>0x02</code> in order to set the fuses in the hardware correctly at upload, and change the value of <code>nona4809.build.f_cpu</code> to <code>20000000L</code> for the software to know about it. Also make sure the legacy register emulation is disabled in the Tools menu of Arduino IDE.</p>
+<p>More note: Many modern televisions and monitors tend to be very finicky about signal timing. If your board uses the internal PLL oscillator (as e.g. the Arduino Nano Every does) instead of a quartz, the picture might get fluffy or completely borked due to the massive jitter of the clock. In that case you might want to use an external <a href="osc.jpg">20 MHz crystal oscillator</a> to make it stable. For this to work, you will need to uncomment the appropriate line in the <code>setup()</code> function in <code>avrgbi.ino</code></p>
 
 <h3>Supported modes</h3>
-<p>Video modes are defined in the form of header files in the <code>modes</code> folder. This means that the firmware has to be built with one specific mode selected at the top of <code>avrgbi-videogen.h</code>, and it can NOT be changed without re-flashing.</p>
+<p>Video modes are defined in the form of header files in the <code>modes</code> folder. This means that the firmware has to be built with a specific mode selected at the top of <code>avrgbi-videogen.h</code>, and it can NOT be changed without re-flashing.</p>
 <p>Currently the following modes are available:</p>
 <ul>
 <li>NTSC (720x480@30i), 120x96 4bpp</li>
+<li>PAL (720x576@25i), 120x96 4bpp</li>
 </ul>
+<p>Please note that especially in PAL mode the aspect ratio will be stretched. This is due to the AVR clock speed and memory size being quite incompatible with the weird numbers used in the video signal specs.</p>
 
 <h3>How on earth does it work</h3>
 
-<p>The synchronisation signal is generated using the builtin timer/counter of the ATMega chip, which also controls the timing of the video output by interrupts. This way the rest of the program can safely run in the blanking intervals without interfering with the signal timing.</p>
+<p>The synchronisation signal is generated by the builtin timer/counter of the ATMega chip, which also controls the timing of the video output by interrupts. This way the rest of the program can safely run in the blanking intervals without interfering with the signal timing.</p>
 <p>The picture data is stored in the memory as a series of bytes, where each byte stores the color values for 2 pixels, as shown by this very professional figure below:</p>
 <img src="byte.png">
-<p>The reason for RGBI color format is that 4-bit color is nice to work with on an 8-bit processor. You can imagine this as if all three color channels had 2 bits, except the lower bits are tied together into that one I (intensity?) bit. This gives us a total of 16 possible colors.</p>
+<p>The reason for 4-bit color (instead of the more reasonable 8-bit on this architecture) is the small amount of memory and the fact that most AVR boards don't have any output ports with all 8 bits wired out.</p>
+<p>Using the RGB connection described in the <a href="#hardware">next section</a>, you will get an RGBI (almost CGA) color space. You can imagine this as if all three color channels had 2 bits, except the lower bits are tied together into that one I (intensity?) bit. This gives us a total of 16 possible colors. In monochrome configuration you will get 16 shades of grey (or whatever color your screen is).</p>
 <p>After a cold boot, the screen will show the garbage that happens to be in memory, mostly determined by manufacturing imperfections, cosmic radiation, and the number of femboy foxes in your area. This is normal behavior, and you can get rid of it by filling the screen with a color as described in the <a href="#protocol">protocol specification.</a></p>
 <p>If you want to know more about the way this whole thing is implemented, go study the code. ;)</p>
 
@@ -33,23 +36,23 @@
 
 <p>Below is a table about what I/O ports are used for what:</p>
 <table>
-<tr><th class="emptycell"></th><th>R</th><th>G</th><th>B</th><th>I</th><th>Sync</th><th>Mode switch</th></tr>
-<tr><td>ATMega4809</td><td>PD3</td><td>PD2</td><td>PD1</td><td>PD0</td><td>PB0</td><td>PB1</td></tr>
-<tr><td>Arduino Nano Every</td><td>A0</td><td>A1</td><td>A2</td><td>A3</td><td>D9</td><td>D10</td></tr>
+<tr><th class="emptycell"></th><th>R</th><th>G</th><th>B</th><th>I</th><th>Sync</th><th>Mode switch</th><th>Clock in (optional)</th></tr>
+<tr><td>ATMega4809</td><td>PD3</td><td>PD2</td><td>PD1</td><td>PD0</td><td>PB0</td><td>PB1</td><td>PA0</td></tr>
+<tr><td>Arduino Nano Every</td><td>A0</td><td>A1</td><td>A2</td><td>A3</td><td>D9</td><td>D10</td><td>D2</td></tr>
 </table>
 
-<p>The device can be connected either to a television with a EuroScart input using NTSC timing (yes, we are feeding American signal into a European device, but who cares as long as it works), or to a VGA monitor with a 15-pin (or maybe only 14-pin?) D-Sub input using standard VESA timing (which is not yet implemented in the firmware but I show you the physical layer anyway).</p>
+<p>The device can be connected either to a television with a EuroScart or composite input using PAL or NTSC timing, or to a VGA monitor with a 15-pin (or maybe only 14-pin?) D-Sub input using standard VESA timing (which is not yet implemented in the firmware but I show you the physical layer anyway).</p>
 
 <table class="imgcntnr">
-<tr><td><a href="wiring-scart.png"><img src="wiring-scart.png" width="440"></a></td><td><a href="wiring-vga.png"><img src="wiring-vga.png" width="440"></a></td></tr>
-<tr><td>Scart connection (actually works)</td><td>VGA (D-Sub) connection (not supported yet)</td></tr>
+<tr><td><a href="wiring-scart.png"><img src="wiring-scart.png" width="330"></a></td><td><a href="wiring-vga.png"><img src="wiring-vga.png" width="330"></a></td><td><a href="wiring-composite.png"><img src="wiring-composite.png" width="330"></a></td></tr>
+<tr><td>Scart RGB connection</td><td>VGA (D-Sub) connection (not supported yet)</td><td>Composite (monochrome) connection</td></tr>
 </table>
 
 <h3>Sync signal</h3>
 
-<p>In the case of Scart, our composite sync signal goes to pin 19, where normally composite video goes. Please note that the sync signal in a Scart connector has separate input and output pins with crossover wiring in the cable. This diagram shows a female connector that generously offers the signal on its output pin. If you decide to cut a cable with a male plug (no clue why would anyone do that), make sure to use pin 20 instead to fire right into the TV's input.</p>
+<p>In case of Scart, our composite sync signal goes to pin 19, where normally composite video goes. Please note that the sync signal in a Scart connector has separate input and output pins with crossover wiring in the cable. This diagram shows a female connector that generously offers the signal on its output pin. If you decide to cut a cable with a male plug (no clue why would anyone do that), make sure to use pin 20 instead to fire right into the TV's input.</p>
 <p>For the Scart connection, the signal level has to be reduced to around 0.3 volts. This is done by putting a 1.2k resistor in series, forming a voltage divider with the 75 ohms of the TV's input.</p>
-<p>VGA uses TTL levels for the sync signal, so we can connect it directly to the Arduino's output. We could use separate pins for the H and V sync signals, but as more or less every monitor supports composite sync and there is no other option in the case of Scart anyway, no need to make things more complicated.</p>
+<p>VGA uses TTL levels for the sync signal, so we can connect it directly to the Arduino's output. We could use separate pins for the H and V sync signals here, but as more or less every monitor supports composite sync, no need to make things more complicated.</p>
 
 <h3>RGB signals</h3>
 
@@ -65,16 +68,22 @@
 
 <img src="2types.png">
 
-<p>The picture above shows two possible sets of colors, and which one you will get depends on the way your TV handles signal levels. As a traditional composite video signal carries the brightness information and the sync signal on the same wire (for the sake of simplicity, colors don't exist now), the smort engineers chose to lift the black level up from the ground to make room for the sync pulses to go even lower. This means that in a standard analog TV signal the visible brightness range goes from 0.3 V to 1 V, and it is true even for the RGB input. The problem is that the black level of our circuit is exaclty 0 V. Now, the standard also says that a TV should calibrate its black level based on the signal level during the "back porch", which happens in each line and is the time interval between the horizontal sync pulse and the left edge of the actual picture. (This is why you get a black screen if you tie the video signal to a fixed voltage.) Some TV sets can do this correctly and display the palette shown on the left. But some TVs are just unable to "hear" below a certain voltage, and on those the low signals get buried, giving a palette similar to the one on the right. This inconsistency could probably be fixed by pulling all three signals up by 0.3 volts using some appropriate resistors, but I wanted to keep the circuit simple.</p>
+<p>The picture above shows two possible sets of colors, and which one you will get depends on the way your TV handles signal levels. As the traditional composite video standard says, a TV should calibrate its blanking level based on the signal level during the "back porch", which happens in each line and is the time interval between the horizontal sync pulse and the left edge of the actual picture. (This was invented this way to make the system immune to DC offset.) Although this should still be below the black level of the picture, some TV sets just ignore this fact and interpret brightness from this level up. (Although you can usually correct it using the brightness control on the tv.) By default, these devices will display the palette shown on the left. Some other TVs on the other hand have the proper offset on the input, and on those the low signals get buried, giving a palette similar to the one on the right. As in our simple circuit the blanking level and the black level are the same thing, we have to live with this inconsistency for now.</p>
+
+<h3>Composite mode</h3>
+
+<p>Because of the cursed way color is encoded in composite video, AVRGBI only supports monochrome output when using this connection. In this case we simply use a resistor network to convert the digital signals into the appropriate voltage levels for the analog video signal to produce a 16-color grayscale output. Note that as the composite video signal has some play even between the blanking level and the darkest visible black, a quick and dirty hack here is using a smaller resistor for the sync signal to offset things a little. Otherwise the second darkest color would never be visible on some devices, no matter how you adjust the brightness and contrast settings.</p>
+<p>The rest is for converting the 4-bit value to an analog voltage level where R is the MSB and I is the LSB. The resistor values shown on the diagram are theoretical in the sense that you probably won't find them at any store on the planet, but you can compile them from multiple pieces, or use potentiometers. But even if you just use values that are "close enough", the worse thing that can happen is some nonlinearity in brightness.</p>
+<p>Of course you don't necessarily need to use a yellow rca plug, it also works just fine through <s>any other color RCA</s> Scart connection, using pin 19 or 20 as mentioned earlier.</p>
 
 <a id="protocol"><h2>Serial protocol specification</h2></a>
-<p>Commands can be sent to the device using the serial interface at 115200 Baud, with no handshake signals, 8 data bits, without parity bit, and one stop bit. A command is made up of a one-byte command identifier followed by some parameters. A command is executed after receiving the required number of bytes with no time limit.</p>
+<p>Commands can be sent to the device using the serial interface at 115200 Baud, with no handshake signals, 8 data bits, no parity bit, and one stop bit. A command is made up of a one-byte command identifier followed by some parameters. A command is executed after receiving the required number of bytes with no time limit.</p>
 
 <h3>Commands</h3>
 
 <table>
 <tr><td><code>0x00 - C - X - Y</code></td><td>Set pixel at <code>X</code> and <code>Y</code> coordinates to color <code>C</code>.</td></tr>
-<tr><td><code>0x01 - X0 - Y0 - X1 - Y1 - C</code></td><td>Draw a filled rectangle of color <code>C</code> with <code>X0</code>, <code>Y0</code>, <code>X1</code> and <code>Y1</code> specifying two opposite corners. Depending on the specified parameters, optimized functions are called for single horizontal or vertical lines, or filling a screen-wide area.</td></tr>
+<tr><td><code>0x01 - C - X0 - Y0 - X1 - Y1</code></td><td>Draw a filled rectangle of color <code>C</code> with <code>X0</code>, <code>Y0</code>, <code>X1</code> and <code>Y1</code> specifying two opposite corners. Depending on the specified parameters, optimized functions are called for single horizontal or vertical lines, or filling a screen-wide area.</td></tr>
 <tr><td><code>0x02 - XBYTE - Y - WBYTE - H - ...</code></td><td>Display a rectangular bitmap described by the data following this command, starting at row <code>Y</code>. Due to the way pixel data is stored in memory, the horizontal offset must be even, and is going to be <code>XBYTE * 2</code>. The bitmap is drawn in horizontal lines with a width of <code>WBYTE * 2</code> and a height of <code>H</code>. The command returns after <code>XBYTE * H</code> bytes of data has been received.</td></tr>
 </table>
 

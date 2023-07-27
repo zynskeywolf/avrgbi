@@ -237,7 +237,9 @@ void bmp(unsigned char x, unsigned char ypos, unsigned char width, unsigned char
 
 void setup()
 {
-	_PROTECTED_WRITE(CLKCTRL.MCLKCTRLB, 0); // cpu clock
+	_PROTECTED_WRITE(CLKCTRL.MCLKCTRLB, 0); // disable clock prescaler
+
+	// _PROTECTED_WRITE(CLKCTRL.MCLKCTRLA, 3); // uncomment to use external clock (20 MHz quartz oscillator)
 
 	VPORTB.DIR |= 1;
 	VPORTB.OUT=255;
