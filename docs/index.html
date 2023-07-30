@@ -50,7 +50,7 @@
 
 <h3>Sync signal</h3>
 
-<p>In case of Scart, our composite sync signal goes to pin 19, where normally composite video goes. Please note that the sync signal in a Scart connector has separate input and output pins with crossover wiring in the cable. This diagram shows a female connector that generously offers the signal on its output pin. If you decide to cut a cable with a male plug (no clue why would anyone do that), make sure to use pin 20 instead to fire right into the TV's input.</p>
+<p>In the case of Scart, our composite sync signal goes to pin 19, where normally composite video goes. Please note that the sync signal in a Scart connector has separate input and output pins with crossover wiring in the cable. This diagram shows a female connector that generously offers the signal on its output pin. If you decide to cut a cable with a male plug (no clue why would anyone do that), make sure to use pin 20 instead to fire right into the TV's input.</p>
 <p>For the Scart connection, the signal level has to be reduced to around 0.3 volts. This is done by putting a 1.2k resistor in series, forming a voltage divider with the 75 ohms of the TV's input.</p>
 <p>VGA uses TTL levels for the sync signal, so we can connect it directly to the Arduino's output. We could use separate pins for the H and V sync signals here, but as more or less every monitor supports composite sync, no need to make things more complicated.</p>
 
