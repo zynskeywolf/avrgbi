@@ -5,7 +5,7 @@
 #include "avrgbi-videogen.h"
 
 volatile unsigned short scanLine;
-unsigned char linerepeat, renderLine, *ptr, nextLine;
+unsigned char linerepeat, renderLine, *ptr, nextLine, field=0;
 
 unsigned char * render_setup() {
 	TCA0.SINGLE.CTRLA = TCA_SINGLE_ENABLE_bm;
@@ -54,7 +54,7 @@ ISR(TCA0_OVF_vect) {
 		    _RNDRLN
 		    :
 		    : [port] "i" (&VPORTD.OUT),
-		    "x" (ptr+renderLine*_HBYTES),
+		    "x" (ptr+renderLine*_HBYTES+field*_VRES*_HBYTES),
 		    [bleft] "d" (_HBYTES) //bytes left
 		    : "r16", "r17"
 		);
@@ -71,7 +71,13 @@ ISR(TCA0_OVF_vect) {
 
 	case 3: // front porch
 		if (scanLine == _FRAME_LINES - 1)
+		{
 			nextLine = 0;
+			#ifdef STEREO
+			field^=1;
+			VPORTE.OUT^=6;
+			#endif
+		}
 		break;
 	}
 	scanLine++;

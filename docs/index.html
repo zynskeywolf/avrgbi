@@ -10,15 +10,16 @@
 
 <h3>Note about clock frequency</h3>
 
-<p>Note: For some cursed reason the Arduino IDE is configured for a clock speed of 16 MHz for the ATMega4809, even though it can do up to 20 MHz. We hope they will fix it in the future, but for now you will need to change some config for this firmware to work properly.<br>The board definition file can be found at <code>/home/you/.arduinoXX/packages/arduino/hardware/megaavr/X.X.X/boards.txt</code> on Linux and in a similar location under <code>C:\Users\you\AppData\Local\ArduinoXX</code> on Windows. If you find a line saying something like <code>nona4809.bootloader.OSCCFG=0x01</code>, change the value to <code>0x02</code> in order to set the fuses in the hardware correctly at upload, and change the value of <code>nona4809.build.f_cpu</code> to <code>20000000L</code> for the software to know about it. Also make sure the legacy register emulation is disabled in the Tools menu of Arduino IDE.</p>
+<p>Note: For some cursed reason the Arduino IDE is configured for a clock speed of 16 MHz for the ATMega4809, even though it can do up to 20 MHz. We hope they will fix it in the future, but for now you will need to change some config for this firmware to work properly.<br>The board definition file can be found at <code>/home/you/.arduinoXX/packages/arduino/hardware/megaavr/X.X.X/boards.txt</code> on Linux and in a similar location under <code>C:\Users\you\AppData\Local\ArduinoXX</code> on Windows. If you find a line saying something like <code>nona4809.bootloader.OSCCFG=0x01</code>, change the value to <code>0x02</code> in order to set the fuses in the hardware correctly at upload, and change the value of <code>nona4809.build.f_cpu</code> to <code>20000000L</code> for the software to know about it. If the image is stretched to the right or there are sync issues, it's most probably due to these settings being left on default. You may need to restart the Arduino IDE for the changes to take effect.</p>
+<p>Also make sure the legacy register emulation is disabled in the Tools menu, otherwise you will get errors.</p>
 <p>More note: Many modern televisions and monitors tend to be very finicky about signal timing. If your board uses the internal PLL oscillator (as e.g. the Arduino Nano Every does) instead of a quartz, the picture might get fluffy or completely borked due to the massive jitter of the clock. In that case you might want to use an external <a href="osc.jpg">20 MHz crystal oscillator</a> to make it stable. For this to work, you will need to uncomment the appropriate line in the <code>setup()</code> function in <code>avrgbi.ino</code></p>
 
 <h3>Supported modes</h3>
 <p>Video modes are defined in the form of header files in the <code>modes</code> folder. This means that the firmware has to be built with a specific mode selected at the top of <code>avrgbi-videogen.h</code>, and it can NOT be changed without re-flashing.</p>
 <p>Currently the following modes are available:</p>
 <ul>
-<li>NTSC (720x480@30i), 120x96 4bpp</li>
-<li>PAL (720x576@25i), 120x96 4bpp</li>
+<li>NTSC (524 lines @ 30i), 120x96 4bpp</li>
+<li>PAL (624 lines @ 25i), 120x96 4bpp</li>
 </ul>
 <p>Please note that especially in PAL mode the aspect ratio will be stretched. This is due to the AVR clock speed and memory size being quite incompatible with the weird numbers used in the video signal specs.</p>
 

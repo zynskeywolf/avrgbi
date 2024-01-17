@@ -6,5 +6,11 @@
 #define _VBUFSIZE (_HBYTES*_VRES)
 #define _LASTLINE (_VOFFSET+_VRES*(_LINERPT+1))
 
+#ifdef STEREO
+#define _BUFHEIGHT (_VRES*2)
+#else
+#define _BUFHEIGHT _VRES
+#endif
+
 unsigned char* render_setup();
 void inline wait_until(unsigned short);

@@ -31,7 +31,7 @@ inline void fill(unsigned char c, unsigned char cmode, unsigned char y0, unsigne
 }
 
 inline void pix(unsigned char c, unsigned char x, unsigned char y) {
-	short i=(x%_HRES)/2+(y%_VRES)*_HBYTES;
+	short i=(x%_HRES)/2+(y%_BUFHEIGHT)*_HBYTES;
 	switch(c>>4)
 	{
 	case 0:
@@ -188,9 +188,9 @@ void rect(unsigned char c, unsigned char x0, unsigned char y0, unsigned char x1,
 		y0=y1;
 		y1=tmp;
 	}
-	if(x0>=_HRES||y0>=_VRES) return; // top left corner out of screen: do nothing
+	if(x0>=_HRES||y0>=_BUFHEIGHT) return; // top left corner out of screen: do nothing
 	if(x1>=_HRES) x1=_HRES-1; // right edge out of screen: bring it back in
-	if(y1>=_VRES) y1=_VRES-1; // bottom edge out of screen: bring it back in
+	if(y1>=_BUFHEIGHT) y1=_BUFHEIGHT-1; // bottom edge out of screen: bring it back in
 
 	if(x0==0 && x1==_HRES-1) // full width
 	{
@@ -228,7 +228,7 @@ void bmp(unsigned char x, unsigned char ypos, unsigned char width, unsigned char
 		for(unsigned short i=x; i<dtmp; i++) // a row
 		{
 			while(!Serial.available()); // wait for data
-			if(line==_VRES||i>=_HBYTES) Serial.read(); // out of screen: discard
+			if(line==_BUFHEIGHT||i>=_HBYTES) Serial.read(); // out of screen: discard
 			else scrnptr[line*_HBYTES+i]=Serial.read(); // in screen: draw
 		}
 		line++;
@@ -246,27 +246,31 @@ void setup()
 	PORTB.PIN0CTRL=128;
 	PORTB.PIN1CTRL=8;
 	VPORTD.DIR |= 0b00001111;
+	#ifdef STEREO
+	VPORTE.DIR |= 0b00000110;
+	VPORTE.OUT = 2;
+	#endif
 
 	scrnptr=render_setup();
 
 	if (!(PORTB.IN&2)) // mode(PB1) pulled low: test pattern, enable debug
 	{
-		rect(0,0,0,_HRES/4-1,_VRES/4-1);
-		rect(1,_HRES/4,0,_HRES/2-1,_VRES/4-1);
-		rect(2,_HRES/2,0,_HRES*0.75-1,_VRES/4-1);
-		rect(3,_HRES*0.75,0,_HRES-1,_VRES/4-1);
-		rect(4,0,_VRES/4,_HRES/4-1,_VRES/2-1);
-		rect(5,_HRES/4,_VRES/4,_HRES/2-1,_VRES/2-1);
-		rect(6,_HRES/2,_VRES/4,_HRES*0.75-1,_VRES/2-1);
-		rect(7,_HRES*0.75,_VRES/4,_HRES-1,_VRES/2-1);
-		rect(8,0,_VRES/2,_HRES/4-1,_VRES*0.75-1);
-		rect(9,_HRES/4,_VRES/2,_HRES/2-1,_VRES*0.75-1);
-		rect(10,_HRES/2,_VRES/2,_HRES*0.75-1,_VRES*0.75-1);
-		rect(11,_HRES*0.75,_VRES/2,_HRES-1,_VRES*0.75-1);
-		rect(12,0,_VRES*0.75,_HRES/4-1,_VRES-1);
-		rect(13,_HRES/4,_VRES*0.75,_HRES/2-1,_VRES-1);
-		rect(14,_HRES/2,_VRES*0.75,_HRES*0.75-1,_VRES-1);
-		rect(15,_HRES*0.75,_VRES*0.75,_HRES-1,_VRES-1);
+		rect(0,0,0,_HRES/4-1,_BUFHEIGHT/4-1);
+		rect(1,_HRES/4,0,_HRES/2-1,_BUFHEIGHT/4-1);
+		rect(2,_HRES/2,0,_HRES*0.75-1,_BUFHEIGHT/4-1);
+		rect(3,_HRES*0.75,0,_HRES-1,_BUFHEIGHT/4-1);
+		rect(4,0,_BUFHEIGHT/4,_HRES/4-1,_BUFHEIGHT/2-1);
+		rect(5,_HRES/4,_BUFHEIGHT/4,_HRES/2-1,_BUFHEIGHT/2-1);
+		rect(6,_HRES/2,_BUFHEIGHT/4,_HRES*0.75-1,_BUFHEIGHT/2-1);
+		rect(7,_HRES*0.75,_BUFHEIGHT/4,_HRES-1,_BUFHEIGHT/2-1);
+		rect(8,0,_BUFHEIGHT/2,_HRES/4-1,_BUFHEIGHT*0.75-1);
+		rect(9,_HRES/4,_BUFHEIGHT/2,_HRES/2-1,_BUFHEIGHT*0.75-1);
+		rect(10,_HRES/2,_BUFHEIGHT/2,_HRES*0.75-1,_BUFHEIGHT*0.75-1);
+		rect(11,_HRES*0.75,_BUFHEIGHT/2,_HRES-1,_BUFHEIGHT*0.75-1);
+		rect(12,0,_BUFHEIGHT*0.75,_HRES/4-1,_BUFHEIGHT-1);
+		rect(13,_HRES/4,_BUFHEIGHT*0.75,_HRES/2-1,_BUFHEIGHT-1);
+		rect(14,_HRES/2,_BUFHEIGHT*0.75,_HRES*0.75-1,_BUFHEIGHT-1);
+		rect(15,_HRES*0.75,_BUFHEIGHT*0.75,_HRES-1,_BUFHEIGHT-1);
 		debug=1;
 	}
 	PORTB.PIN1CTRL=0; // mode(PB1) pullup off (to be eco friendly)
